@@ -26,6 +26,8 @@ async def query_model(
         "Content-Type": "application/json",
     }
 
+
+    
     payload = {
         "model": model,
         "messages": messages,
@@ -45,10 +47,17 @@ async def query_model(
             data = response.json()
             message = data['choices'][0]['message']
 
-            return {
+            result = {
                 'content': message.get('content'),
                 'reasoning_details': message.get('reasoning_details')
             }
+
+            # Handle image responses (e.g., from Gemini image models)
+            images = message.get('images', [])
+            if images:
+                result['images'] = images
+
+            return result
 
     except Exception as e:
         print(f"Error querying model {model}: {e}")

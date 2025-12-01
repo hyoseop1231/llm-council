@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
-import ReactMarkdown from 'react-markdown';
+import Markdown from './Markdown';
+import Stage0 from './Stage0';
 import Stage1 from './Stage1';
 import Stage2 from './Stage2';
 import Stage3 from './Stage3';
+import Stage4 from './Stage4';
 import './ChatInterface.css';
 
 export default function ChatInterface({
@@ -116,9 +118,7 @@ export default function ChatInterface({
                   <div className="user-message">
                     <div className="message-label">You</div>
                     <div className="message-content">
-                      <div className="markdown-content">
-                        <ReactMarkdown>{msg.content}</ReactMarkdown>
-                      </div>
+                      <Markdown>{msg.content}</Markdown>
                       {msg.attachments && msg.attachments.length > 0 && (
                         <div className="message-attachments">
                           {msg.attachments.map((att, i) => (
@@ -137,6 +137,15 @@ export default function ChatInterface({
                 ) : (
                   <div className="assistant-message">
                     <div className="message-label">LLM Council</div>
+
+                    {/* Stage 0 - Web Search */}
+                    {msg.loading?.stage0 && (
+                      <div className="stage-loading">
+                        <div className="spinner"></div>
+                        <span>Checking if web search is needed...</span>
+                      </div>
+                    )}
+                    {msg.stage0 && <Stage0 searchResult={msg.stage0} />}
 
                     {/* Stage 1 */}
                     {msg.loading?.stage1 && (
@@ -170,6 +179,15 @@ export default function ChatInterface({
                       </div>
                     )}
                     {msg.stage3 && <Stage3 finalResponse={msg.stage3} />}
+
+                    {/* Stage 4 - Infographic */}
+                    {msg.loading?.stage4 && (
+                      <div className="stage-loading">
+                        <div className="spinner"></div>
+                        <span>Running Stage 4: Generating infographic...</span>
+                      </div>
+                    )}
+                    {msg.stage4 && <Stage4 infographicResult={msg.stage4} />}
                   </div>
                 )}
               </div>

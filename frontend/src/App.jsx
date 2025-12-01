@@ -92,10 +92,12 @@ function App() {
       // Use streaming API
       let assistantMessage = {
         role: 'assistant',
-        loading: { stage1: true },
+        loading: { stage0: true, stage1: false, stage2: false, stage3: false, stage4: false },
+        stage0: null,
         stage1: null,
         stage2: null,
-        stage3: null
+        stage3: null,
+        stage4: null
       };
 
       // Add placeholder assistant message
@@ -110,6 +112,25 @@ function App() {
         attachments,
         (type, event) => {
           switch (type) {
+            case 'stage0_start':
+              setCurrentConversation((prev) => {
+                const messages = [...prev.messages];
+                const lastMsg = messages[messages.length - 1];
+                lastMsg.loading.stage0 = true;
+                return { ...prev, messages };
+              });
+              break;
+
+            case 'stage0_complete':
+              setCurrentConversation((prev) => {
+                const messages = [...prev.messages];
+                const lastMsg = messages[messages.length - 1];
+                lastMsg.stage0 = event.data;
+                lastMsg.loading.stage0 = false;
+                return { ...prev, messages };
+              });
+              break;
+
             case 'stage1_start':
               setCurrentConversation((prev) => {
                 const messages = [...prev.messages];
@@ -164,6 +185,25 @@ function App() {
                 const lastMsg = messages[messages.length - 1];
                 lastMsg.stage3 = event.data;
                 lastMsg.loading.stage3 = false;
+                return { ...prev, messages };
+              });
+              break;
+
+            case 'stage4_start':
+              setCurrentConversation((prev) => {
+                const messages = [...prev.messages];
+                const lastMsg = messages[messages.length - 1];
+                lastMsg.loading.stage4 = true;
+                return { ...prev, messages };
+              });
+              break;
+
+            case 'stage4_complete':
+              setCurrentConversation((prev) => {
+                const messages = [...prev.messages];
+                const lastMsg = messages[messages.length - 1];
+                lastMsg.stage4 = event.data;
+                lastMsg.loading.stage4 = false;
                 return { ...prev, messages };
               });
               break;

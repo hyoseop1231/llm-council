@@ -131,27 +131,41 @@ def add_assistant_message(
     conversation_id: str,
     stage1: List[Dict[str, Any]],
     stage2: List[Dict[str, Any]],
-    stage3: Dict[str, Any]
+    stage3: Dict[str, Any],
+    stage0: Optional[Dict[str, Any]] = None,
+    stage4: Optional[Dict[str, Any]] = None
 ):
     """
-    Add an assistant message with all 3 stages to a conversation.
+    Add an assistant message with all stages to a conversation.
 
     Args:
         conversation_id: Conversation identifier
+        stage0: Optional web search results
         stage1: List of individual model responses
         stage2: List of model rankings
         stage3: Final synthesized response
+        stage4: Optional infographic generation result
     """
     conversation = get_conversation(conversation_id)
     if conversation is None:
         raise ValueError(f"Conversation {conversation_id} not found")
 
-    conversation["messages"].append({
+    message = {
         "role": "assistant",
         "stage1": stage1,
         "stage2": stage2,
         "stage3": stage3
-    })
+    }
+
+    # Only include stage0 if search was performed
+    if stage0 and stage0.get("searched"):
+        message["stage0"] = stage0
+
+    # Only include stage4 if infographic was generated
+    if stage4 and stage4.get("generated"):
+        message["stage4"] = stage4
+
+    conversation["messages"].append(message)
 
     save_conversation(conversation)
 

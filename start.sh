@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # LLM Council - Start script
+export PATH=$HOME/.local/bin:$PATH
 
 echo "Starting LLM Council..."
 echo ""

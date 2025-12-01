@@ -15,7 +15,14 @@ import asyncio
 
 from . import storage
 from . import uploads
-from .council import run_full_council, generate_conversation_title, stage1_collect_responses, stage2_collect_rankings, stage3_synthesize_final, calculate_aggregate_rankings
+from .council import (
+    run_full_council, generate_conversation_title,
+    check_search_necessity, stage0_web_search,
+    stage1_collect_responses, stage2_collect_rankings,
+    stage3_synthesize_final, stage4_generate_infographic,
+    calculate_aggregate_rankings
+)
+from .prompt_optimizer import optimize_file_content, clean_text
 
 def format_history_for_llm(messages: List[Dict[str, Any]]) -> List[Dict[str, str]]:
     """
@@ -154,8 +161,8 @@ async def send_message(conversation_id: str, request: SendMessageRequest):
     if request.attachments:
         processed_content = process_attachments(request.content, request.attachments)
 
-    # Run the 3-stage council process
-    stage1_results, stage2_results, stage3_result, metadata = await run_full_council(
+    # Run the 4-stage council process (Stage 0-3)
+    stage0_result, stage1_results, stage2_results, stage3_result, metadata = await run_full_council(
         processed_content,
         history=history
     )
@@ -165,11 +172,13 @@ async def send_message(conversation_id: str, request: SendMessageRequest):
         conversation_id,
         stage1_results,
         stage2_results,
-        stage3_result
+        stage3_result,
+        stage0_result
     )
 
     # Return the complete response with metadata
     return {
+        "stage0": stage0_result,
         "stage1": stage1_results,
         "stage2": stage2_results,
         "stage3": stage3_result,
@@ -211,20 +220,47 @@ async def send_message_stream(conversation_id: str, request: SendMessageRequest)
                 processed_content = process_attachments(request.content, request.attachments)
                 print("Attachments processed.")
 
+            # Stage 0: Check if web search is needed
+            yield f"data: {json.dumps({'type': 'stage0_start'})}\n\n"
+
+            # Extract text for search check
+            query_text = processed_content
+            if isinstance(processed_content, list):
+                for item in processed_content:
+                    if item.get("type") == "text":
+                        query_text = item.get("text", "")
+                        break
+
+            print("Checking if search is needed...")
+            needs_search = await check_search_necessity(query_text)
+            search_context = None
+            stage0_result = {"model": "perplexity/sonar-pro-search", "response": None, "searched": False}
+
+            if needs_search:
+                print("Search needed. Running Stage 0...")
+                stage0_result = await stage0_web_search(query_text)
+                if stage0_result.get("searched") and stage0_result.get("response"):
+                    search_context = stage0_result["response"]
+                    print("Stage 0 complete. Search results obtained.")
+            else:
+                print("Search not needed. Skipping Stage 0.")
+
+            yield f"data: {json.dumps({'type': 'stage0_complete', 'data': stage0_result})}\n\n"
+
             # Stage 1: Collect responses
             yield f"data: {json.dumps({'type': 'stage1_start'})}\n\n"
-            
+
             # Prepare messages with history for Stage 1
             current_messages = history.copy()
-            
+
             # Handle multimodal content structure
             if isinstance(processed_content, list):
                 current_messages.append({"role": "user", "content": processed_content})
             else:
                 current_messages.append({"role": "user", "content": processed_content})
-            
+
             print("Starting Stage 1...")
-            stage1_results = await stage1_collect_responses(current_messages)
+            stage1_results = await stage1_collect_responses(current_messages, search_context)
             print(f"Stage 1 complete. Got {len(stage1_results)} results.")
             yield f"data: {json.dumps({'type': 'stage1_complete', 'data': stage1_results})}\n\n"
 
@@ -244,6 +280,14 @@ async def send_message_stream(conversation_id: str, request: SendMessageRequest)
             )
             yield f"data: {json.dumps({'type': 'stage3_complete', 'data': stage3_result})}\n\n"
 
+            # Stage 4: Generate infographic
+            yield f"data: {json.dumps({'type': 'stage4_start'})}\n\n"
+            stage4_result = await stage4_generate_infographic(
+                request.content,
+                stage3_result.get('response', '')
+            )
+            yield f"data: {json.dumps({'type': 'stage4_complete', 'data': stage4_result})}\n\n"
+
             # Wait for title generation if it was started
             if title_task:
                 title = await title_task
@@ -255,7 +299,9 @@ async def send_message_stream(conversation_id: str, request: SendMessageRequest)
                 conversation_id,
                 stage1_results,
                 stage2_results,
-                stage3_result
+                stage3_result,
+                stage0_result,
+                stage4_result
             )
 
             # Send completion event
@@ -310,19 +356,23 @@ def process_attachments(content: str, attachments: List[Dict[str, Any]]) -> Any:
                 pdf_text = ""
                 for page in reader.pages:
                     pdf_text += page.extract_text() + "\n"
-                
-                multimodal_content[0]["text"] += f"\n\n--- Attached PDF: {attachment['original_filename']} ---\n{pdf_text}\n--- End of PDF ---"
-                print(f"Successfully extracted text from PDF: {attachment['original_filename']}")
+
+                # Optimize PDF content
+                optimized_pdf = optimize_file_content(pdf_text, attachment['original_filename'], max_chars=15000)
+                multimodal_content[0]["text"] += f"\n\n--- Attached PDF: {attachment['original_filename']} ---\n{optimized_pdf}\n--- End of PDF ---"
+                print(f"Successfully extracted and optimized PDF: {attachment['original_filename']} ({len(pdf_text)} -> {len(optimized_pdf)} chars)")
             except Exception as e:
                 print(f"Error processing PDF {path}: {e}")
-                
+
         else:
             # Handle as text file (try to read everything else as text)
             try:
                 with open(path, "r", encoding='utf-8') as text_file:
                     file_content = text_file.read()
-                    multimodal_content[0]["text"] += f"\n\n--- Attached File: {attachment['original_filename']} ---\n{file_content}\n--- End of File ---"
-                    print(f"Successfully appended text file: {attachment['original_filename']}")
+                    # Optimize text file content
+                    optimized_content = optimize_file_content(file_content, attachment['original_filename'], max_chars=15000)
+                    multimodal_content[0]["text"] += f"\n\n--- Attached File: {attachment['original_filename']} ---\n{optimized_content}\n--- End of File ---"
+                    print(f"Successfully appended and optimized text file: {attachment['original_filename']} ({len(file_content)} -> {len(optimized_content)} chars)")
             except UnicodeDecodeError:
                 print(f"Warning: Could not decode {attachment['original_filename']} as UTF-8 text. Skipping.")
             except Exception as e:

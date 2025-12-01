@@ -1,0 +1,281 @@
+.stage4 {
+  background-color: #fff5f5;
+  border: 1px solid #feb2b2;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.stage4 .stage-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid #feb2b2;
+  padding-bottom: 8px;
+}
+
+.stage4 .stage-header h3 {
+  margin: 0;
+  font-size: 14px;
+  color: #c53030;
+}
+
+.infographic-badge {
+  background-color: #e53e3e;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+/* Thumbnail Preview */
+.infographic-preview {
+  position: relative;
+  cursor: pointer;
+  border-radius: 8px;
+  overflow: hidden;
+  max-width: 400px;
+  margin: 0 auto;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.infographic-preview:hover {
+  transform: scale(1.02);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+.infographic-thumbnail {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.preview-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.7));
+  padding: 20px 12px 12px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.infographic-preview:hover .preview-overlay {
+  opacity: 1;
+}
+
+.preview-hint {
+  color: white;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* Action Buttons */
+.infographic-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s, transform 0.1s;
+}
+
+.action-btn:active {
+  transform: scale(0.98);
+}
+
+.view-btn {
+  background-color: #4a5568;
+  color: white;
+}
+
+.view-btn:hover {
+  background-color: #2d3748;
+}
+
+.download-btn {
+  background-color: #e53e3e;
+  color: white;
+}
+
+.download-btn:hover {
+  background-color: #c53030;
+}
+
+.close-btn {
+  background-color: #718096;
+  color: white;
+}
+
+.close-btn:hover {
+  background-color: #4a5568;
+}
+
+/* Modal Overlay */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Modal Content */
+.modal-content {
+  background: white;
+  border-radius: 12px;
+  max-width: 90vw;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.modal-header h4 {
+  margin: 0;
+  font-size: 16px;
+  color: #1a202c;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: #718096;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.modal-close:hover {
+  background-color: #f7fafc;
+  color: #1a202c;
+}
+
+.modal-body {
+  padding: 20px;
+  overflow: auto;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #f7fafc;
+}
+
+.infographic-full {
+  max-width: 100%;
+  max-height: calc(90vh - 140px);
+  object-fit: contain;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 20px;
+  border-top: 1px solid #e2e8f0;
+}
+
+/* Text/Error States */
+.infographic-text {
+  background-color: white;
+  border-radius: 6px;
+  padding: 12px;
+}
+
+.info-note {
+  font-size: 12px;
+  color: #718096;
+  margin: 0 0 8px 0;
+}
+
+.content-preview {
+  font-size: 14px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.infographic-error {
+  text-align: center;
+  color: #718096;
+  padding: 20px;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .infographic-preview {
+    max-width: 100%;
+  }
+
+  .infographic-actions {
+    flex-direction: column;
+  }
+
+  .action-btn {
+    justify-content: center;
+  }
+
+  .modal-content {
+    max-width: 95vw;
+    max-height: 95vh;
+  }
+
+  .modal-footer {
+    flex-direction: column;
+  }
+}
