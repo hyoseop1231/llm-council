@@ -33,11 +33,13 @@ async def query_model(
 
     try:
         async with httpx.AsyncClient(timeout=timeout) as client:
+            print(f"Sending request to {model}...")
             response = await client.post(
                 OPENROUTER_API_URL,
                 headers=headers,
                 json=payload
             )
+            print(f"Received response from {model}: {response.status_code}")
             response.raise_for_status()
 
             data = response.json()

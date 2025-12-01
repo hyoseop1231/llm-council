@@ -2,15 +2,39 @@
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, FileResponse
+from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
+import base64
+import mimetypes
 import uuid
 import json
 import asyncio
 
 from . import storage
+from . import uploads
 from .council import run_full_council, generate_conversation_title, stage1_collect_responses, stage2_collect_rankings, stage3_synthesize_final, calculate_aggregate_rankings
+
+def format_history_for_llm(messages: List[Dict[str, Any]]) -> List[Dict[str, str]]:
+    """
+    Format conversation history for LLM consumption.
+    Extracts final response from assistant messages.
+    """
+    formatted_history = []
+    for msg in messages:
+        if msg['role'] == 'user':
+            formatted_history.append({"role": "user", "content": msg['content']})
+        elif msg['role'] == 'assistant':
+            # For assistant messages, we only care about the final synthesized response
+            # which is in stage3['response']
+            if 'stage3' in msg and msg['stage3'] and 'response' in msg['stage3']:
+                formatted_history.append({
+                    "role": "assistant", 
+                    "content": msg['stage3']['response']
+                })
+    return formatted_history
 
 app = FastAPI(title="LLM Council API")
 
@@ -23,6 +47,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Mount uploads directory for static access (optional, but useful for debugging)
+import os
+os.makedirs("data/uploads", exist_ok=True)
+app.mount("/uploads", StaticFiles(directory="data/uploads"), name="uploads")
+
 
 class CreateConversationRequest(BaseModel):
     """Request to create a new conversation."""
@@ -32,6 +61,7 @@ class CreateConversationRequest(BaseModel):
 class SendMessageRequest(BaseModel):
     """Request to send a message in a conversation."""
     content: str
+    attachments: Optional[List[Dict[str, Any]]] = None
 
 
 class ConversationMetadata(BaseModel):
@@ -54,6 +84,12 @@ class Conversation(BaseModel):
 async def root():
     """Health check endpoint."""
     return {"status": "ok", "service": "LLM Council API"}
+
+
+@app.post("/api/upload")
+async def upload_file(file: UploadFile = File(...)):
+    """Upload a file."""
+    return await uploads.save_upload(file)
 
 
 @app.get("/api/conversations", response_model=List[ConversationMetadata])
@@ -79,6 +115,15 @@ async def get_conversation(conversation_id: str):
     return conversation
 
 
+@app.delete("/api/conversations/{conversation_id}")
+async def delete_conversation(conversation_id: str):
+    """Delete a conversation."""
+    success = storage.delete_conversation(conversation_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    return {"status": "success"}
+
+
 @app.post("/api/conversations/{conversation_id}/message")
 async def send_message(conversation_id: str, request: SendMessageRequest):
     """
@@ -101,9 +146,18 @@ async def send_message(conversation_id: str, request: SendMessageRequest):
         title = await generate_conversation_title(request.content)
         storage.update_conversation_title(conversation_id, title)
 
+    # Get conversation history
+    history = format_history_for_llm(conversation["messages"])
+
+    # Process attachments if any
+    processed_content = request.content
+    if request.attachments:
+        processed_content = process_attachments(request.content, request.attachments)
+
     # Run the 3-stage council process
     stage1_results, stage2_results, stage3_result, metadata = await run_full_council(
-        request.content
+        processed_content,
+        history=history
     )
 
     # Add assistant message with all stages
@@ -147,9 +201,31 @@ async def send_message_stream(conversation_id: str, request: SendMessageRequest)
             if is_first_message:
                 title_task = asyncio.create_task(generate_conversation_title(request.content))
 
+            # Get conversation history
+            history = format_history_for_llm(conversation["messages"])
+
+            # Process attachments if any
+            processed_content = request.content
+            if request.attachments:
+                print(f"Processing {len(request.attachments)} attachments...")
+                processed_content = process_attachments(request.content, request.attachments)
+                print("Attachments processed.")
+
             # Stage 1: Collect responses
             yield f"data: {json.dumps({'type': 'stage1_start'})}\n\n"
-            stage1_results = await stage1_collect_responses(request.content)
+            
+            # Prepare messages with history for Stage 1
+            current_messages = history.copy()
+            
+            # Handle multimodal content structure
+            if isinstance(processed_content, list):
+                current_messages.append({"role": "user", "content": processed_content})
+            else:
+                current_messages.append({"role": "user", "content": processed_content})
+            
+            print("Starting Stage 1...")
+            stage1_results = await stage1_collect_responses(current_messages)
+            print(f"Stage 1 complete. Got {len(stage1_results)} results.")
             yield f"data: {json.dumps({'type': 'stage1_complete', 'data': stage1_results})}\n\n"
 
             # Stage 2: Collect rankings
@@ -160,7 +236,12 @@ async def send_message_stream(conversation_id: str, request: SendMessageRequest)
 
             # Stage 3: Synthesize final answer
             yield f"data: {json.dumps({'type': 'stage3_start'})}\n\n"
-            stage3_result = await stage3_synthesize_final(request.content, stage1_results, stage2_results)
+            stage3_result = await stage3_synthesize_final(
+                processed_content, 
+                stage1_results, 
+                stage2_results,
+                history=current_messages
+            )
             yield f"data: {json.dumps({'type': 'stage3_complete', 'data': stage3_result})}\n\n"
 
             # Wait for title generation if it was started
@@ -192,6 +273,69 @@ async def send_message_stream(conversation_id: str, request: SendMessageRequest)
             "Connection": "keep-alive",
         }
     )
+
+
+def process_attachments(content: str, attachments: List[Dict[str, Any]]) -> Any:
+    """
+    Process attachments and return content suitable for LLM.
+    - Images: Converted to base64 and added to multimodal content list.
+    - Text/Other: Attempt to read as text and append to content.
+    """
+    multimodal_content = [{"type": "text", "text": content}]
+    
+    for attachment in attachments:
+        path = uploads.get_upload_path(attachment['filename'])
+        mime_type = attachment['content_type']
+        print(f"Processing attachment: {attachment['original_filename']} ({mime_type})")
+        
+        if mime_type.startswith('image/'):
+            # Handle image
+            try:
+                with open(path, "rb") as image_file:
+                    encoded_string = base64.b64encode(image_file.read()).decode('utf-8')
+                    multimodal_content.append({
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:{mime_type};base64,{encoded_string}"
+                        }
+                    })
+            except Exception as e:
+                print(f"Error processing image {path}: {e}")
+                
+        elif mime_type == 'application/pdf':
+            # Handle PDF file
+            try:
+                import pypdf
+                reader = pypdf.PdfReader(path)
+                pdf_text = ""
+                for page in reader.pages:
+                    pdf_text += page.extract_text() + "\n"
+                
+                multimodal_content[0]["text"] += f"\n\n--- Attached PDF: {attachment['original_filename']} ---\n{pdf_text}\n--- End of PDF ---"
+                print(f"Successfully extracted text from PDF: {attachment['original_filename']}")
+            except Exception as e:
+                print(f"Error processing PDF {path}: {e}")
+                
+        else:
+            # Handle as text file (try to read everything else as text)
+            try:
+                with open(path, "r", encoding='utf-8') as text_file:
+                    file_content = text_file.read()
+                    multimodal_content[0]["text"] += f"\n\n--- Attached File: {attachment['original_filename']} ---\n{file_content}\n--- End of File ---"
+                    print(f"Successfully appended text file: {attachment['original_filename']}")
+            except UnicodeDecodeError:
+                print(f"Warning: Could not decode {attachment['original_filename']} as UTF-8 text. Skipping.")
+            except Exception as e:
+                print(f"Error processing file {path}: {e}")
+    
+    # If we only have text (after appending text files), return string
+    # If we have images, return list
+    has_images = any(item['type'] == 'image_url' for item in multimodal_content)
+    
+    if has_images:
+        return multimodal_content
+    else:
+        return multimodal_content[0]["text"]
 
 
 if __name__ == "__main__":
