@@ -5,7 +5,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 # Load .env from backend directory
-env_path = Path(__file__).parent / '.env'
+env_path = Path(__file__).parent / ".env"
 load_dotenv(env_path, override=True)
 
 # OpenRouter API key

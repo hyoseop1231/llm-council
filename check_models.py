@@ -11,16 +11,18 @@ from backend.config import COUNCIL_MODELS, CHAIRMAN_MODEL, SEARCH_MODEL, UTILITY
 
 OPENROUTER_MODELS_URL = "https://openrouter.ai/api/v1/models"
 
+
 def fetch_available_models():
     """Fetch list of available models from OpenRouter API."""
     try:
         response = httpx.get(OPENROUTER_MODELS_URL, timeout=30.0)
         response.raise_for_status()
         data = response.json()
-        return [m['id'] for m in data.get('data', [])]
+        return [m["id"] for m in data.get("data", [])]
     except Exception as e:
         print(f"Error fetching models: {e}")
         return []
+
 
 def check_models():
     """Check if all configured models are available."""
@@ -35,7 +37,9 @@ def check_models():
     print("-" * 50)
 
     # Collect all models to check (council + chairman + search + utility)
-    all_models = list(set(COUNCIL_MODELS + [CHAIRMAN_MODEL, SEARCH_MODEL, UTILITY_MODEL]))
+    all_models = list(
+        set(COUNCIL_MODELS + [CHAIRMAN_MODEL, SEARCH_MODEL, UTILITY_MODEL])
+    )
 
     all_found = True
     for model in all_models:
@@ -45,7 +49,7 @@ def check_models():
             print(f"❌ [MISSING] {model}")
             all_found = False
             # Suggest closest matches
-            base_name = model.split('/')[-1].split(':')[0][:8]
+            base_name = model.split("/")[-1].split(":")[0][:8]
             closest = [m for m in available if base_name.lower() in m.lower()][:5]
             if closest:
                 print(f"   Suggestions: {', '.join(closest)}")
@@ -57,6 +61,7 @@ def check_models():
         print("⚠️  Some models are missing. Update backend/config.py")
 
     return all_found
+
 
 if __name__ == "__main__":
     success = check_models()

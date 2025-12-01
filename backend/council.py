@@ -5,8 +5,18 @@ import asyncio
 import json
 import re
 from .openrouter import query_model, query_models_parallel
-from .config import COUNCIL_MODELS, CHAIRMAN_MODEL, SEARCH_MODEL, UTILITY_MODEL, IMAGE_MODEL
-from .prompt_optimizer import optimize_search_results, optimize_conversation_history, compress_text
+from .config import (
+    COUNCIL_MODELS,
+    CHAIRMAN_MODEL,
+    SEARCH_MODEL,
+    UTILITY_MODEL,
+    IMAGE_MODEL,
+)
+from .prompt_optimizer import (
+    optimize_search_results,
+    optimize_conversation_history,
+    compress_text,
+)
 
 
 async def check_search_necessity(user_query: str) -> bool:
@@ -43,7 +53,7 @@ Respond with ONLY "YES" or "NO", nothing else."""
     if response is None:
         return False  # Default to no search on failure
 
-    answer = response.get('content', '').strip().upper()
+    answer = response.get("content", "").strip().upper()
     return answer == "YES"
 
 
@@ -94,17 +104,19 @@ Be thorough and detailed. The information you gather will be used by multiple AI
 IMPORTANT: Your entire response MUST be in Korean (한국어)."""
 
     messages = [{"role": "user", "content": search_prompt}]
-    response = await query_model(SEARCH_MODEL, messages, timeout=90.0)  # Longer timeout for thorough research
+    response = await query_model(
+        SEARCH_MODEL, messages, timeout=90.0
+    )  # Longer timeout for thorough research
 
     if response is None:
         return {
             "model": SEARCH_MODEL,
             "response": None,
             "searched": False,
-            "optimized": False
+            "optimized": False,
         }
 
-    raw_response = response.get('content', '')
+    raw_response = response.get("content", "")
     # Optimize search results to reduce tokens while preserving key information
     # Increased limit to 12000 chars for more comprehensive research
     optimized_response = optimize_search_results(raw_response, max_chars=12000)
@@ -115,11 +127,13 @@ IMPORTANT: Your entire response MUST be in Korean (한국어)."""
         "searched": True,
         "optimized": len(optimized_response) < len(raw_response),
         "original_length": len(raw_response),
-        "optimized_length": len(optimized_response)
+        "optimized_length": len(optimized_response),
     }
 
 
-async def stage1_collect_responses(messages: List[Dict[str, Any]], search_context: str = None) -> List[Dict[str, Any]]:
+async def stage1_collect_responses(
+    messages: List[Dict[str, Any]], search_context: str = None
+) -> List[Dict[str, Any]]:
     """
     Stage 1: Collect individual responses from all council models.
 
@@ -135,24 +149,26 @@ async def stage1_collect_responses(messages: List[Dict[str, Any]], search_contex
         messages = messages.copy()
         # Find the last user message and enhance it with search context
         for i in range(len(messages) - 1, -1, -1):
-            if messages[i].get('role') == 'user':
-                original_content = messages[i].get('content', '')
+            if messages[i].get("role") == "user":
+                original_content = messages[i].get("content", "")
                 # Handle multimodal content
                 if isinstance(original_content, list):
                     # Find text content and enhance it
                     enhanced_content = []
                     for item in original_content:
-                        if item.get('type') == 'text':
+                        if item.get("type") == "text":
                             enhanced_text = f"""Here is relevant information from a web search that may help answer this question:
 
 --- Web Search Results ---
 {search_context}
 --- End of Search Results ---
 
-User's Question: {item.get('text', '')}
+User's Question: {item.get("text", "")}
 
 Please use the search results above as context when formulating your response, but also apply your own knowledge and analysis."""
-                            enhanced_content.append({"type": "text", "text": enhanced_text})
+                            enhanced_content.append(
+                                {"type": "text", "text": enhanced_text}
+                            )
                         else:
                             enhanced_content.append(item)
                     messages[i] = {"role": "user", "content": enhanced_content}
@@ -176,17 +192,15 @@ Please use the search results above as context when formulating your response, b
     stage1_results = []
     for model, response in responses.items():
         if response is not None:  # Only include successful responses
-            stage1_results.append({
-                "model": model,
-                "response": response.get('content', '')
-            })
+            stage1_results.append(
+                {"model": model, "response": response.get("content", "")}
+            )
 
     return stage1_results
 
 
 async def stage2_collect_rankings(
-    user_query: Union[str, List[Dict[str, Any]]],
-    stage1_results: List[Dict[str, Any]]
+    user_query: Union[str, List[Dict[str, Any]]], stage1_results: List[Dict[str, Any]]
 ) -> Tuple[List[Dict[str, Any]], Dict[str, str]]:
     """
     Stage 2: Each model ranks the anonymized responses.
@@ -203,15 +217,17 @@ async def stage2_collect_rankings(
 
     # Create mapping from label to model name
     label_to_model = {
-        f"Response {label}": result['model']
+        f"Response {label}": result["model"]
         for label, result in zip(labels, stage1_results)
     }
 
     # Build the ranking prompt
-    responses_text = "\n\n".join([
-        f"Response {label}:\n{result['response']}"
-        for label, result in zip(labels, stage1_results)
-    ])
+    responses_text = "\n\n".join(
+        [
+            f"Response {label}:\n{result['response']}"
+            for label, result in zip(labels, stage1_results)
+        ]
+    )
 
     # Extract text from user_query if it's multimodal
     query_text = user_query
@@ -262,13 +278,11 @@ Now provide your evaluation and ranking in Korean:"""
     stage2_results = []
     for model, response in responses.items():
         if response is not None:
-            full_text = response.get('content', '')
+            full_text = response.get("content", "")
             parsed = parse_ranking_from_text(full_text)
-            stage2_results.append({
-                "model": model,
-                "ranking": full_text,
-                "parsed_ranking": parsed
-            })
+            stage2_results.append(
+                {"model": model, "ranking": full_text, "parsed_ranking": parsed}
+            )
 
     return stage2_results, label_to_model
 
@@ -277,17 +291,17 @@ async def stage3_synthesize_final(
     user_query: Union[str, List[Dict[str, Any]]],
     stage1_results: List[Dict[str, Any]],
     stage2_results: List[Dict[str, Any]],
-    history: List[Dict[str, Any]] = None
+    history: List[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
     Stage 3: Chairman synthesizes the final answer.
-    
+
     Args:
         user_query: Original user query (string or list for multimodal)
         stage1_results: Results from Stage 1
         stage2_results: Results from Stage 2
         history: Conversation history
-        
+
     Returns:
         Final synthesis result
     """
@@ -298,17 +312,17 @@ async def stage3_synthesize_final(
             if item.get("type") == "text":
                 query_text = item.get("text", "")
                 break
-    
+
     # Format Stage 1 responses
     stage1_text = ""
     for res in stage1_results:
         stage1_text += f"Model ({res['model']}):\n{res['response']}\n\n"
-        
+
     # Format Stage 2 rankings
     stage2_text = ""
     for res in stage2_results:
-        stage2_text += f"Reviewer ({res['model']}):\n{res['ranking']}\n\n" # Changed from 'response' to 'ranking' to match original structure
-        
+        stage2_text += f"Reviewer ({res['model']}):\n{res['ranking']}\n\n"  # Changed from 'response' to 'ranking' to match original structure
+
     chairman_prompt = f"""
 You are the Chairman of the LLM Council.
 Your goal is to synthesize a final, comprehensive answer to the user's query based on the initial responses from council members and their peer reviews.
@@ -334,7 +348,7 @@ IMPORTANT: Your final answer MUST be in Korean.
     messages = []
     if history:
         messages.extend(history)
-        
+
     messages.append({"role": "user", "content": chairman_prompt})
 
     # Query the chairman model
@@ -344,13 +358,10 @@ IMPORTANT: Your final answer MUST be in Korean.
         # Fallback if chairman fails
         return {
             "model": CHAIRMAN_MODEL,
-            "response": "Error: Unable to generate final synthesis."
+            "response": "Error: Unable to generate final synthesis.",
         }
 
-    return {
-        "model": CHAIRMAN_MODEL,
-        "response": response.get('content', '')
-    }
+    return {"model": CHAIRMAN_MODEL, "response": response.get("content", "")}
 
 
 def parse_ranking_from_text(ranking_text: str) -> List[str]:
@@ -373,23 +384,24 @@ def parse_ranking_from_text(ranking_text: str) -> List[str]:
             ranking_section = parts[1]
             # Try to extract numbered list format (e.g., "1. Response A")
             # This pattern looks for: number, period, optional space, "Response X"
-            numbered_matches = re.findall(r'\d+\.\s*Response [A-Z]', ranking_section)
+            numbered_matches = re.findall(r"\d+\.\s*Response [A-Z]", ranking_section)
             if numbered_matches:
                 # Extract just the "Response X" part
-                return [re.search(r'Response [A-Z]', m).group() for m in numbered_matches]
+                return [
+                    re.search(r"Response [A-Z]", m).group() for m in numbered_matches
+                ]
 
             # Fallback: Extract all "Response X" patterns in order
-            matches = re.findall(r'Response [A-Z]', ranking_section)
+            matches = re.findall(r"Response [A-Z]", ranking_section)
             return matches
 
     # Fallback: try to find any "Response X" patterns in order
-    matches = re.findall(r'Response [A-Z]', ranking_text)
+    matches = re.findall(r"Response [A-Z]", ranking_text)
     return matches
 
 
 def calculate_aggregate_rankings(
-    stage2_results: List[Dict[str, Any]],
-    label_to_model: Dict[str, str]
+    stage2_results: List[Dict[str, Any]], label_to_model: Dict[str, str]
 ) -> List[Dict[str, Any]]:
     """
     Calculate aggregate rankings across all models.
@@ -407,7 +419,7 @@ def calculate_aggregate_rankings(
     model_positions = defaultdict(list)
 
     for ranking in stage2_results:
-        ranking_text = ranking['ranking']
+        ranking_text = ranking["ranking"]
 
         # Parse the ranking from the structured format
         parsed_ranking = parse_ranking_from_text(ranking_text)
@@ -422,14 +434,16 @@ def calculate_aggregate_rankings(
     for model, positions in model_positions.items():
         if positions:
             avg_rank = sum(positions) / len(positions)
-            aggregate.append({
-                "model": model,
-                "average_rank": round(avg_rank, 2),
-                "rankings_count": len(positions)
-            })
+            aggregate.append(
+                {
+                    "model": model,
+                    "average_rank": round(avg_rank, 2),
+                    "rankings_count": len(positions),
+                }
+            )
 
     # Sort by average rank (lower is better)
-    aggregate.sort(key=lambda x: x['average_rank'])
+    aggregate.sort(key=lambda x: x["average_rank"])
 
     return aggregate
 
@@ -460,10 +474,10 @@ Title:"""
         # Fallback to a generic title
         return "New Conversation"
 
-    title = response.get('content', 'New Conversation').strip()
+    title = response.get("content", "New Conversation").strip()
 
     # Clean up the title - remove quotes, limit length
-    title = title.strip('"\'')
+    title = title.strip("\"'")
 
     # Truncate if too long
     if len(title) > 50:
@@ -473,8 +487,7 @@ Title:"""
 
 
 async def run_full_council(
-    user_query: str,
-    history: List[Dict[str, str]] = None
+    user_query: str, history: List[Dict[str, str]] = None
 ) -> Tuple[Dict, List, List, Dict, Dict]:
     """
     Run the complete 4-stage council process (Stage 0-3).
@@ -491,14 +504,12 @@ async def run_full_council(
 
     # Optimize conversation history to reduce token usage
     optimized_history = optimize_conversation_history(
-        history,
-        max_messages=10,
-        max_chars_per_message=3000
+        history, max_messages=10, max_chars_per_message=3000
     )
 
     # Ensure current query is in history
     current_messages = optimized_history.copy()
-    if not current_messages or current_messages[-1].get('content') != user_query:
+    if not current_messages or current_messages[-1].get("content") != user_query:
         current_messages.append({"role": "user", "content": user_query})
 
     # Stage 0: Check if web search is needed and perform if necessary
@@ -524,37 +535,41 @@ async def run_full_council(
 
     # If no models responded successfully, return error
     if not stage1_results:
-        return stage0_result, [], [], {
-            "model": "error",
-            "response": "All models failed to respond. Please try again."
-        }, {}
+        return (
+            stage0_result,
+            [],
+            [],
+            {
+                "model": "error",
+                "response": "All models failed to respond. Please try again.",
+            },
+            {},
+        )
 
     # Stage 2: Collect rankings
-    stage2_results, label_to_model = await stage2_collect_rankings(user_query, stage1_results)
+    stage2_results, label_to_model = await stage2_collect_rankings(
+        user_query, stage1_results
+    )
 
     # Calculate aggregate rankings
     aggregate_rankings = calculate_aggregate_rankings(stage2_results, label_to_model)
 
     # Stage 3: Synthesize final answer
     stage3_result = await stage3_synthesize_final(
-        user_query,
-        stage1_results,
-        stage2_results,
-        history=current_messages
+        user_query, stage1_results, stage2_results, history=current_messages
     )
 
     # Prepare metadata
     metadata = {
         "label_to_model": label_to_model,
-        "aggregate_rankings": aggregate_rankings
+        "aggregate_rankings": aggregate_rankings,
     }
 
     return stage0_result, stage1_results, stage2_results, stage3_result, metadata
 
 
 async def stage4_generate_infographic(
-    user_query: str,
-    final_answer: str
+    user_query: str, final_answer: str
 ) -> Dict[str, Any]:
     """
     Stage 4: Generate an infographic summarizing the final answer.
@@ -597,27 +612,27 @@ Create an infographic image that someone could quickly scan to understand the ma
             "model": IMAGE_MODEL,
             "image_data": None,
             "generated": False,
-            "error": "Failed to generate infographic"
+            "error": "Failed to generate infographic",
         }
 
     # Extract image from response
     # OpenRouter returns images in message.images[] array
     # Each image has: {type: "image_url", image_url: {url: "data:image/...;base64,..."}}
     image_data = None
-    images = response.get('images', [])
+    images = response.get("images", [])
 
     if images and len(images) > 0:
         first_image = images[0]
         if isinstance(first_image, dict):
-            image_url_obj = first_image.get('image_url', {})
+            image_url_obj = first_image.get("image_url", {})
             if isinstance(image_url_obj, dict):
-                image_data = image_url_obj.get('url')
+                image_data = image_url_obj.get("url")
             elif isinstance(image_url_obj, str):
                 image_data = image_url_obj
 
     # Fallback: check content field
-    content = response.get('content', '')
-    if not image_data and content and content.startswith('data:image'):
+    content = response.get("content", "")
+    if not image_data and content and content.startswith("data:image"):
         image_data = content
 
     return {
@@ -625,5 +640,5 @@ Create an infographic image that someone could quickly scan to understand the ma
         "image_data": image_data,
         "content": content,
         "generated": image_data is not None,
-        "images_count": len(images)
+        "images_count": len(images),
     }
