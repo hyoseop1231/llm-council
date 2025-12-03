@@ -174,18 +174,21 @@ function KnowledgeBase({ onClose }) {
                             ) : files.length === 0 ? (
                                 <div className="empty-state">No files in this repository</div>
                             ) : (
-                                files.map((file) => (
-                                    <div key={file} className="file-item">
-                                        <span className="file-icon">📄</span>
-                                        <span className="file-name">{file}</span>
-                                        <button
-                                            className="delete-btn"
-                                            onClick={() => handleDeleteFile(file)}
-                                        >
-                                            🗑️
-                                        </button>
-                                    </div>
-                                ))
+                                files.map((file, idx) => {
+                                    const fileName = typeof file === 'string' ? file : file.name;
+                                    return (
+                                        <div key={fileName + idx} className="file-item">
+                                            <span className="file-icon">📄</span>
+                                            <span className="file-name">{fileName}</span>
+                                            <button
+                                                className="delete-btn"
+                                                onClick={() => handleDeleteFile(fileName)}
+                                            >
+                                                🗑️
+                                            </button>
+                                        </div>
+                                    );
+                                })
                             )}
                         </div>
                     </div>

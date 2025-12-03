@@ -171,7 +171,7 @@ async def upload_knowledge(
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/knowledge/files")
-async def list_knowledge_files(repository: str = "default"):
+async def list_knowledge_files(repository: Optional[str] = None):
     """List files in the knowledge base."""
     files = rag.list_documents(repository=repository)
     return {"files": files}

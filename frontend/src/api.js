@@ -113,8 +113,12 @@ export const api = {
   /**
    * List files in Knowledge Base.
    */
-  async listKnowledgeFiles(repository = 'default') {
-    const response = await fetch(`${API_BASE}/api/knowledge/files?repository=${repository}`);
+  async listKnowledgeFiles(repository = null) {
+    const url = repository
+      ? `${API_BASE}/api/knowledge/files?repository=${repository}`
+      : `${API_BASE}/api/knowledge/files`;
+
+    const response = await fetch(url);
     if (!response.ok) {
       throw new Error('Failed to list knowledge files');
     }

@@ -14,6 +14,16 @@
   padding: 2rem;
   padding-bottom: 12rem;
   /* Increased space for input form + toggle */
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  /* For absolute positioning of empty state */
+}
+
+.messages-container.empty {
+  padding-bottom: 0;
+  overflow: hidden;
+  /* Prevent scrolling in empty state */
 }
 
 .message-group {
@@ -21,6 +31,8 @@
   max-width: 800px;
   margin-left: auto;
   margin-right: auto;
+  width: 100%;
+  /* Ensure it takes width */
 }
 
 .user-message {
@@ -222,12 +234,19 @@
 }
 
 .empty-state {
+  position: absolute;
+  top: 40%;
+  /* Slightly above center to account for input area */
+  left: 50%;
+  transform: translate(-50%, -50%);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 100%;
+  width: 100%;
   color: #666;
+  pointer-events: none;
+  /* Let clicks pass through if needed */
 }
 
 .empty-state h2 {
@@ -533,6 +552,12 @@
 .suggestion-name {
   font-size: 0.9rem;
   color: #374151;
+}
+
+.suggestion-detail {
+  font-size: 0.8rem;
+  color: #9ca3af;
+  margin-left: 0.5rem;
 }
 
 .clarification-textarea {

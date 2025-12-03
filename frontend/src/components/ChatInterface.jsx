@@ -68,7 +68,11 @@ export default function ChatInterface({
       // Combine into a single list with types
       const items = [
         ...repos.map(r => ({ type: 'repo', name: r })),
-        ...files.map(f => ({ type: 'file', name: f }))
+        ...files.map(f => ({
+          type: 'file',
+          name: typeof f === 'string' ? f : f.name,
+          repository: f.repository
+        }))
       ];
       setAvailableItems(items);
       console.log("Available items set:", items);
@@ -134,6 +138,7 @@ export default function ChatInterface({
       const newText = `${prefix}@${item.name} ${suffix}`;
       setInput(newText);
       setShowSuggestions(false);
+      setUseRag(true); // Auto-enable RAG when a mention is selected
 
       // Refocus input (optional, might need ref)
     }
@@ -340,7 +345,7 @@ export default function ChatInterface({
 
   return (
     <div className="chat-interface">
-      <div className="messages-container">
+      <div className={`messages-container ${conversation.messages.length === 0 ? 'empty' : ''}`}>
         {conversation.messages.length === 0 ? (
           <div className="empty-state">
             <h2>Start a conversation</h2>
@@ -575,7 +580,10 @@ export default function ChatInterface({
                       onClick={() => handleSuggestionClick(item)}
                     >
                       <span className="suggestion-type">{item.type === 'repo' ? '📦' : '📄'}</span>
-                      <span className="suggestion-name">{item.name}</span>
+                      <span className="suggestion-name">
+                        {item.name}
+                        {item.type === 'file' && <span className="suggestion-detail"> ({item.repository})</span>}
+                      </span>
                     </div>
                   ))}
                 </div>

@@ -372,21 +372,41 @@ def query_knowledge_base(query: str, n_results: int = 3, repositories: List[str]
         print(f"Error querying KB: {e}")
         return []
 
-def list_documents(repository: str = DEFAULT_COLLECTION_NAME) -> List[str]:
-    """List all unique documents in a repository."""
+def list_documents(repository: str = None) -> List[Dict[str, str]]:
+    """
+    List all unique documents.
+    If repository is None, list from all repositories.
+    Returns list of {"name": filename, "repository": repo_name}
+    """
+    all_files = []
+    
     try:
-        collection = get_collection(name=repository)
-        result = collection.get()
+        repos_to_search = [repository] if repository else list_repositories()
         
-        sources = set()
-        if result['metadatas']:
-            for meta in result['metadatas']:
-                if 'source' in meta:
-                    sources.add(meta['source'])
+        for repo in repos_to_search:
+            try:
+                # Use _get_collection_by_display_name to handle safe names
+                collection = _get_collection_by_display_name(repo)
+                if not collection:
+                    continue
                     
-        return list(sources)
+                result = collection.get()
+                
+                sources = set()
+                if result['metadatas']:
+                    for meta in result['metadatas']:
+                        if 'source' in meta:
+                            sources.add(meta['source'])
+                
+                for source in sources:
+                    all_files.append({"name": source, "repository": repo})
+                    
+            except Exception as e:
+                print(f"Error listing documents in {repo}: {e}")
+                
+        return all_files
     except Exception as e:
-        print(f"Error listing documents in {repository}: {e}")
+        print(f"Error listing documents: {e}")
         return []
 
 def delete_document(filename: str, repository: str = DEFAULT_COLLECTION_NAME) -> bool:
