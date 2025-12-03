@@ -5,7 +5,13 @@ import './Stage1.css';
 export default function Stage1({ responses }) {
   const [activeTab, setActiveTab] = useState(0);
 
-  if (!responses || responses.length === 0) {
+  // Debug logging
+  // console.log('Stage1 responses:', responses);
+
+  // Ensure responses is an array
+  const safeResponses = Array.isArray(responses) ? responses : [];
+
+  if (safeResponses.length === 0) {
     return null;
   }
 
@@ -14,7 +20,7 @@ export default function Stage1({ responses }) {
       <h3 className="stage-title">Stage 1: Individual Responses</h3>
 
       <div className="tabs">
-        {responses.map((resp, index) => (
+        {safeResponses.map((resp, index) => (
           <button
             key={index}
             className={`tab ${activeTab === index ? 'active' : ''}`}
@@ -26,9 +32,9 @@ export default function Stage1({ responses }) {
       </div>
 
       <div className="tab-content">
-        <div className="model-name">{responses[activeTab].model}</div>
+        <div className="model-name">{safeResponses[activeTab]?.model}</div>
         <div className="response-text">
-          <Markdown>{responses[activeTab].response}</Markdown>
+          <Markdown>{safeResponses[activeTab]?.response}</Markdown>
         </div>
       </div>
     </div>

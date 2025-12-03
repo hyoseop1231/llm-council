@@ -30,15 +30,26 @@ async def query_model(
     }
 
     try:
-        async with httpx.AsyncClient(timeout=timeout) as client:
-            print(f"Sending request to {model}...")
+        # Use granular timeouts: connect=10s, read=30s, write=10s, pool=10s
+        timeout_config = httpx.Timeout(timeout, connect=10.0)
+        
+        async with httpx.AsyncClient(timeout=timeout_config) as client:
+            print(f"Sending request to {model} (Timeout: {timeout}s)...")
             response = await client.post(
                 OPENROUTER_API_URL, headers=headers, json=payload
             )
             print(f"Received response from {model}: {response.status_code}")
+            
+            if response.status_code != 200:
+                print(f"Error response body: {response.text}")
+                
             response.raise_for_status()
 
             data = response.json()
+            if "choices" not in data or not data["choices"]:
+                print(f"Unexpected response format from {model}: {data}")
+                return None
+                
             message = data["choices"][0]["message"]
 
             result = {
@@ -53,6 +64,9 @@ async def query_model(
 
             return result
 
+    except httpx.TimeoutException:
+        print(f"Timeout querying model {model} after {timeout}s")
+        return None
     except Exception as e:
         print(f"Error querying model {model}: {e}")
         return None

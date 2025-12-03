@@ -19,20 +19,32 @@
   color: #333;
 }
 
-.new-conversation-btn {
+.new-chat-btn,
+.knowledge-base-btn {
   width: 100%;
   padding: 0.75rem;
-  background-color: #fff;
-  border: 1px solid #e5e5e5;
+  margin-bottom: 0.5rem;
+  background-color: #4a90e2;
+  color: white;
+  border: none;
   border-radius: 0.5rem;
+  font-weight: 600;
   cursor: pointer;
-  font-size: 0.9rem;
-  color: #333;
   transition: background-color 0.2s;
 }
 
-.new-conversation-btn:hover {
-  background-color: #f0f0f0;
+.new-chat-btn:hover,
+.knowledge-base-btn:hover {
+  background-color: #357abd;
+}
+
+.knowledge-base-btn {
+  background-color: #2c3e50;
+  margin-bottom: 1rem;
+}
+
+.knowledge-base-btn:hover {
+  background-color: #1a252f;
 }
 
 .conversation-list {
@@ -47,7 +59,8 @@
   cursor: pointer;
   margin-bottom: 0.25rem;
   transition: background-color 0.2s;
-  position: relative; /* For delete button positioning */
+  position: relative;
+  /* For delete button positioning */
 }
 
 .conversation-item:hover {
@@ -65,7 +78,8 @@
   overflow: hidden;
   text-overflow: ellipsis;
   margin-bottom: 0.25rem;
-  padding-right: 20px; /* Space for delete button */
+  padding-right: 20px;
+  /* Space for delete button */
 }
 
 .conversation-meta {

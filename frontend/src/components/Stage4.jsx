@@ -9,7 +9,7 @@ export default function Stage4({ infographicResult }) {
   }
 
   const { image_data, content, model } = infographicResult;
-  const modelName = model?.split('/').pop() || 'Nano Banana Pro';
+  const modelName = model ? (model.split('/').pop() || model) : 'Nano Banana Pro';
 
   // Check if we have image data
   const hasImage = image_data && (

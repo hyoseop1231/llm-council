@@ -2,11 +2,13 @@ import { useState, useEffect } from 'react';
 import './Sidebar.css';
 
 export default function Sidebar({
-  conversations,
+  conversations = [],
   currentConversationId,
   onSelectConversation,
   onNewConversation,
   onDeleteConversation,
+  onOpenKnowledgeBase,
+  isLoading,
 }) {
   const handleDelete = (e, id) => {
     e.stopPropagation();
@@ -18,12 +20,16 @@ export default function Sidebar({
     <div className="sidebar">
       <div className="sidebar-header">
         <h1>LLM Council</h1>
-        <button className="new-conversation-btn" onClick={onNewConversation}>
-          + New Conversation
+        <button className="new-chat-btn" onClick={onNewConversation} disabled={isLoading}>
+          {isLoading ? 'Creating...' : '+ New Conversation'}
+        </button>
+
+        <button className="knowledge-base-btn" onClick={onOpenKnowledgeBase}>
+          📚 Knowledge Base
         </button>
       </div>
 
-      <div className="conversation-list">
+      <div className="conversations-list">
         {conversations.length === 0 ? (
           <div className="no-conversations">No conversations yet</div>
         ) : (

@@ -31,6 +31,9 @@ UTILITY_MODEL = "google/gemini-2.5-flash-lite"
 # Image generation model (Nano Banana Pro) for infographics
 IMAGE_MODEL = "google/gemini-3-pro-image-preview"
 
+# Vision Language Model for RAG image captioning
+VLM_MODEL = "qwen/qwen-2-vl-7b-instruct"
+
 # OpenRouter API endpoint
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 

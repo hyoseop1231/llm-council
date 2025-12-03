@@ -17,7 +17,13 @@ function deAnonymizeText(text, labelToModel) {
 export default function Stage2({ rankings, labelToModel, aggregateRankings }) {
   const [activeTab, setActiveTab] = useState(0);
 
-  if (!rankings || rankings.length === 0) {
+  // Debug logging
+  // console.log('Stage2 rankings:', rankings);
+
+  // Ensure rankings is an array
+  const safeRankings = Array.isArray(rankings) ? rankings : [];
+
+  if (safeRankings.length === 0) {
     return null;
   }
 
@@ -32,7 +38,7 @@ export default function Stage2({ rankings, labelToModel, aggregateRankings }) {
       </p>
 
       <div className="tabs">
-        {rankings.map((rank, index) => (
+        {safeRankings.map((rank, index) => (
           <button
             key={index}
             className={`tab ${activeTab === index ? 'active' : ''}`}
@@ -45,29 +51,29 @@ export default function Stage2({ rankings, labelToModel, aggregateRankings }) {
 
       <div className="tab-content">
         <div className="ranking-model">
-          {rankings[activeTab].model}
+          {safeRankings[activeTab]?.model}
         </div>
         <div className="ranking-content">
           <Markdown>
-            {deAnonymizeText(rankings[activeTab].ranking, labelToModel)}
+            {deAnonymizeText(safeRankings[activeTab]?.ranking, labelToModel)}
           </Markdown>
         </div>
 
-        {rankings[activeTab].parsed_ranking &&
-         rankings[activeTab].parsed_ranking.length > 0 && (
-          <div className="parsed-ranking">
-            <strong>Extracted Ranking:</strong>
-            <ol>
-              {rankings[activeTab].parsed_ranking.map((label, i) => (
-                <li key={i}>
-                  {labelToModel && labelToModel[label]
-                    ? labelToModel[label].split('/')[1] || labelToModel[label]
-                    : label}
-                </li>
-              ))}
-            </ol>
-          </div>
-        )}
+        {safeRankings[activeTab]?.parsed_ranking &&
+          safeRankings[activeTab].parsed_ranking.length > 0 && (
+            <div className="parsed-ranking">
+              <strong>Extracted Ranking:</strong>
+              <ol>
+                {safeRankings[activeTab].parsed_ranking.map((label, i) => (
+                  <li key={i}>
+                    {labelToModel && labelToModel[label]
+                      ? labelToModel[label].split('/')[1] || labelToModel[label]
+                      : label}
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
       </div>
 
       {aggregateRankings && aggregateRankings.length > 0 && (

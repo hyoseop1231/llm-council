@@ -2,7 +2,7 @@ import Markdown from './Markdown';
 import './Stage3.css';
 
 export default function Stage3({ finalResponse }) {
-  if (!finalResponse) {
+  if (!finalResponse || !finalResponse.response) {
     return null;
   }
 
@@ -11,7 +11,7 @@ export default function Stage3({ finalResponse }) {
       <h3 className="stage-title">Stage 3: Final Council Answer</h3>
       <div className="final-response">
         <div className="chairman-label">
-          Chairman: {finalResponse.model.split('/')[1] || finalResponse.model}
+          Chairman: {finalResponse.model ? (finalResponse.model.split('/')[1] || finalResponse.model) : 'Unknown Model'}
         </div>
         <div className="final-text">
           <Markdown>{finalResponse.response}</Markdown>

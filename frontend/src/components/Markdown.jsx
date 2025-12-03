@@ -8,6 +8,7 @@ import './Markdown.css';
  * Supports: tables, strikethrough, task lists, autolinks, and more.
  */
 export default function Markdown({ children }) {
+  const content = typeof children === 'string' ? children : '';
   return (
     <div className="markdown-content">
       <ReactMarkdown
@@ -41,7 +42,7 @@ export default function Markdown({ children }) {
           ),
         }}
       >
-        {children}
+        {content}
       </ReactMarkdown>
     </div>
   );
